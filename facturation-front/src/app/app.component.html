@@ -1,0 +1,16 @@
+@if (auth.isAuthenticated() && !isLoginPage) {
+  <div class="app-layout">
+    <app-sidebar></app-sidebar>
+    <div class="main-content">
+      <app-header></app-header>
+      <main>
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+} @else {
+  <router-outlet />
+}
+<app-toast-container></app-toast-container>
+<app-loading-spinner></app-loading-spinner>
+<app-confirm-dialog></app-confirm-dialog>
