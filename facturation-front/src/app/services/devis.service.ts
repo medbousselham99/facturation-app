@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Devis } from '../models/devis.model';
+import { PaginatedResponse } from '../models/pagination.model';
 
 @Injectable({
   providedIn: 'root'
@@ -18,7 +20,7 @@ export class DevisService {
     if (id) {
       return this.http.get<Devis>(`${this.apiUrl}/${id}`);
     }
-    return this.http.get<Devis[]>(this.apiUrl);
+    return this.http.get<PaginatedResponse<Devis>>(this.apiUrl).pipe(map(r => r.data));
   }
 
   createDevis(data: Devis): Observable<Devis> {

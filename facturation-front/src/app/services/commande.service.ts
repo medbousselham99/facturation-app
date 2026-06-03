@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Commande } from '../models/commande.model';
+import { PaginatedResponse } from '../models/pagination.model';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +15,7 @@ export class CommandeService {
   constructor(private http: HttpClient) {}
 
   getCommandes(): Observable<Commande[]> {
-    return this.http.get<Commande[]>(this.apiUrl);
+    return this.http.get<PaginatedResponse<Commande>>(this.apiUrl).pipe(map(r => r.data));
   }
 
   getCommande(id: number): Observable<Commande> {

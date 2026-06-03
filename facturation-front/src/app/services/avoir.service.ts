@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Avoir } from '../models/avoir.model';
+import { PaginatedResponse } from '../models/pagination.model';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +15,7 @@ export class AvoirService {
   constructor(private http: HttpClient) {}
 
   getAvoirs(): Observable<Avoir[]> {
-    return this.http.get<Avoir[]>(this.apiUrl);
+    return this.http.get<PaginatedResponse<Avoir>>(this.apiUrl).pipe(map(r => r.data));
   }
 
   getAvoir(id: number): Observable<Avoir> {

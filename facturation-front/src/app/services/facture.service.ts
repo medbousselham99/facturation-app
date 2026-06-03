@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Facture } from '../models/facture.model';
+import { PaginatedResponse } from '../models/pagination.model';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +15,7 @@ export class FactureService {
   constructor(private http: HttpClient) {}
 
   getFactures(): Observable<Facture[]> {
-    return this.http.get<Facture[]>(this.apiUrl);
+    return this.http.get<PaginatedResponse<Facture>>(this.apiUrl).pipe(map(r => r.data));
   }
 
   getFacture(id: number): Observable<Facture> {

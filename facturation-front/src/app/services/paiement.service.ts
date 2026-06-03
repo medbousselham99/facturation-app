@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Paiement } from '../models/paiement.model';
+import { PaginatedResponse } from '../models/pagination.model';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +15,7 @@ export class PaiementService {
   constructor(private http: HttpClient) {}
 
   getPaiements(): Observable<Paiement[]> {
-    return this.http.get<Paiement[]>(this.apiUrl);
+    return this.http.get<PaginatedResponse<Paiement>>(this.apiUrl).pipe(map(r => r.data));
   }
 
   getPaiement(id: number): Observable<Paiement> {

@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { BonDeCommande } from '../models/bon-de-commande.model';
+import { PaginatedResponse } from '../models/pagination.model';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +15,7 @@ export class BonDeCommandeService {
   constructor(private http: HttpClient) {}
 
   getBonsDeCommande(): Observable<BonDeCommande[]> {
-    return this.http.get<BonDeCommande[]>(`${this.apiUrl}?_=${Date.now()}`);
+    return this.http.get<PaginatedResponse<BonDeCommande>>(`${this.apiUrl}?_=${Date.now()}`).pipe(map(r => r.data));
   }
 
   getBonDeCommande(id: number): Observable<BonDeCommande> {
