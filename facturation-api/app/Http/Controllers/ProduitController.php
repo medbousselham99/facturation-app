@@ -2,43 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreProduitRequest;
+use App\Http\Requests\UpdateProduitRequest;
 use App\Models\Produit;
-use Illuminate\Http\Request;
 
 class ProduitController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Produit::query();
+        $produits = Produit::query()
+            ->when(request('search'), fn($q, $s) => $q->where(function ($q) use ($s) {
+                $q->where('nom', 'like', "%{$s}%")->orWhere('reference', 'like', "%{$s}%")->orWhere('description', 'like', "%{$s}%");
+            }))
+            ->when(request()->has('actif'), fn($q) => $q->where('actif', filter_var(request('actif'), FILTER_VALIDATE_BOOLEAN)))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nom', 'like', "%{$search}%")
-                  ->orWhere('reference', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->has('actif')) {
-            $query->where('actif', filter_var($request->actif, FILTER_VALIDATE_BOOLEAN));
-        }
-
-        return response()->json($query->get());
+        return response()->json($produits);
     }
 
-    public function store(Request $request)
+    public function store(StoreProduitRequest $request)
     {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'prix_unitaire_ht' => 'required|numeric|min:0',
-            'tva_taux' => 'nullable|numeric|min:0|max:100',
-            'unite' => 'nullable|string|max:50',
-            'reference' => 'nullable|string|max:100|unique:produits,reference',
-            'actif' => 'nullable|boolean',
-        ]);
-
-        $produit = Produit::create($validated);
+        $produit = Produit::create($request->validated());
 
         return response()->json($produit, 201);
     }
@@ -48,19 +33,9 @@ class ProduitController extends Controller
         return response()->json($produit);
     }
 
-    public function update(Request $request, Produit $produit)
+    public function update(UpdateProduitRequest $request, Produit $produit)
     {
-        $validated = $request->validate([
-            'nom' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'prix_unitaire_ht' => 'sometimes|required|numeric|min:0',
-            'tva_taux' => 'nullable|numeric|min:0|max:100',
-            'unite' => 'nullable|string|max:50',
-            'reference' => 'nullable|string|max:100|unique:produits,reference,' . $produit->id,
-            'actif' => 'nullable|boolean',
-        ]);
-
-        $produit->update($validated);
+        $produit->update($request->validated());
 
         return response()->json($produit);
     }

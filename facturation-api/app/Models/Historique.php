@@ -3,28 +3,22 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Historique extends Model
 {
     protected $fillable = [
+        'document_type',
+        'document_id',
         'action',
         'description',
-        'utilisateur',
-        'model_type',
-        'model_id',
-        'donnees',
+        'user_id',
+        'metadata',
     ];
 
     protected function casts(): array
     {
         return [
-            'donnees' => 'array',
+            'metadata' => 'array',
         ];
-    }
-
-    public function historiqueable(): MorphTo
-    {
-        return $this->morphTo();
     }
 }

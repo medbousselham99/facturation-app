@@ -7,41 +7,21 @@ use Illuminate\Http\Request;
 
 class HistoriqueController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Historique::query();
+        $historiques = Historique::query()
+            ->when(request('document_type'), fn($q, $v) => $q->where('document_type', $v))
+            ->when(request('document_id'), fn($q, $v) => $q->where('document_id', $v))
+            ->latest()
+            ->paginate(request('per_page', 10));
 
-        if ($documentType = $request->get('document_type')) {
-            $query->where('model_type', $documentType);
-        }
-
-        if ($documentId = $request->get('document_id')) {
-            $query->where('model_id', $documentId);
-        }
-
-        return response()->json($query->latest()->get());
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'action' => 'required|string|max:100',
-            'description' => 'nullable|string',
-            'utilisateur' => 'nullable|string|max:255',
-            'model_type' => 'required|string|max:255',
-            'model_id' => 'required|integer',
-            'donnees' => 'nullable|array',
-        ]);
-
-        $historique = Historique::create($validated);
-
-        return response()->json($historique, 201);
+        return response()->json($historiques);
     }
 
     public function forDocument(string $documentType, int $documentId)
     {
-        $historiques = Historique::where('model_type', $documentType)
-            ->where('model_id', $documentId)
+        $historiques = Historique::where('document_type', $documentType)
+            ->where('document_id', $documentId)
             ->latest()
             ->get();
 

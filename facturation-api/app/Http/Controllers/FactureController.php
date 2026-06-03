@@ -2,40 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreFactureRequest;
+use App\Http\Requests\UpdateFactureRequest;
+use App\Models\DocumentSequence;
 use App\Models\Facture;
+use App\Models\Historique;
+use App\Models\Paiement;
+use App\Models\ParametreEntreprise;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class FactureController extends Controller
 {
     public function index()
     {
-        $factures = Facture::with('client:id,nom')->get();
+        $factures = Facture::with('client:id,nom')
+            ->when(request('search'), fn($q, $s) => $q->where('numero_facture', 'like', "%{$s}%"))
+            ->when(request('statut'), fn($q, $s) => $q->where('statut', $s))
+            ->when(request('date_debut'), fn($q, $d) => $q->where('date_facture', '>=', $d))
+            ->when(request('date_fin'), fn($q, $d) => $q->where('date_facture', '<=', $d))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
         return response()->json($factures);
     }
 
-    public function store(Request $request)
+    public function store(StoreFactureRequest $request)
     {
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'commande_id' => 'nullable|exists:commandes,id',
-            'devis_id' => 'nullable|exists:devis,id',
-            'date_facture' => 'required|date',
-            'date_echeance' => 'required|date|after_or_equal:date_facture',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-            'lignes' => 'nullable|array',
-            'lignes.*.description' => 'required_with:lignes|string|max:500',
-            'lignes.*.quantite' => 'required_with:lignes|integer|min:1',
-            'lignes.*.prix_unitaire_ht' => 'required_with:lignes|numeric|min:0',
-            'lignes.*.montant_ht' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
-        $numeroFacture = 'FAC-' . date('Y') . '-' . str_pad(Facture::count() + 1, 4, '0', STR_PAD_LEFT);
-        $validated['numero_facture'] = $numeroFacture;
+        $validated['numero_facture'] = $this->nextNumero('facture', 'FAC-');
 
         if ($request->has('lignes')) {
             $montantHt = collect($request->lignes)->sum('montant_ht');
@@ -64,22 +62,9 @@ class FactureController extends Controller
         return response()->json($facture);
     }
 
-    public function update(Request $request, Facture $facture)
+    public function update(UpdateFactureRequest $request, Facture $facture)
     {
-        $validated = $request->validate([
-            'client_id' => 'sometimes|required|exists:clients,id',
-            'commande_id' => 'nullable|exists:commandes,id',
-            'devis_id' => 'nullable|exists:devis,id',
-            'date_facture' => 'sometimes|required|date',
-            'date_echeance' => 'sometimes|required|date|after_or_equal:date_facture',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
-
-        $facture->update($validated);
+        $facture->update($request->validated());
 
         return response()->json($facture);
     }
@@ -94,12 +79,9 @@ class FactureController extends Controller
     public function pdf(Facture $facture)
     {
         $facture->load(['client', 'lignes']);
-        $params = \App\Models\ParametreEntreprise::first();
+        $params = ParametreEntreprise::first();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.facture', [
-            'facture' => $facture,
-            'params' => $params,
-        ]);
+        $pdf = Pdf::loadView('pdf.facture', compact('facture', 'params'));
 
         return $pdf->download("facture_{$facture->numero_facture}.pdf");
     }
@@ -107,18 +89,15 @@ class FactureController extends Controller
     public function envoyerEmail(Facture $facture)
     {
         $facture->load('client');
-        $params = \App\Models\ParametreEntreprise::first();
+        $params = ParametreEntreprise::first();
 
         try {
-            \Illuminate\Support\Facades\Mail::send('emails.facture', [
-                'facture' => $facture,
-                'params' => $params,
-            ], function ($message) use ($facture, $params) {
+            Mail::send('emails.facture', compact('facture', 'params'), function ($message) use ($facture, $params) {
                 $message->to($facture->client->email, $facture->client->nom)
                         ->subject($params->email_objet_facture ?? "Facture {$facture->numero_facture}");
             });
 
-            \App\Models\Historique::create([
+            Historique::create([
                 'document_type' => 'facture',
                 'document_id' => $facture->id,
                 'action' => 'envoye',
@@ -139,9 +118,9 @@ class FactureController extends Controller
             'reference' => 'nullable|string|max:255',
         ]);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($facture, $validated) {
+        DB::transaction(function () use ($facture, $validated) {
             $facture->update(['statut' => 'payee']);
-            \App\Models\Paiement::create([
+            Paiement::create([
                 'facture_id' => $facture->id,
                 'montant' => $facture->montant_ttc,
                 'date_paiement' => $validated['date_paiement'] ?? now(),
@@ -150,7 +129,7 @@ class FactureController extends Controller
             ]);
         });
 
-        \App\Models\Historique::create([
+        Historique::create([
             'document_type' => 'facture',
             'document_id' => $facture->id,
             'action' => 'paye',
@@ -158,5 +137,22 @@ class FactureController extends Controller
         ]);
 
         return response()->json($facture->fresh()->load('client'));
+    }
+
+    private function nextNumero(string $type, string $prefix): string
+    {
+        $seq = DocumentSequence::firstOrCreate(
+            ['document_type' => $type],
+            ['prefixe' => $prefix, 'annee_courante' => date('Y'), 'prochain_numero' => 1]
+        );
+
+        if ($seq->annee_courante != date('Y')) {
+            $seq->update(['annee_courante' => date('Y'), 'prochain_numero' => 1]);
+        }
+
+        $numero = $prefix . date('Y') . '-' . str_pad($seq->prochain_numero, 4, '0', STR_PAD_LEFT);
+        $seq->increment('prochain_numero');
+
+        return $numero;
     }
 }

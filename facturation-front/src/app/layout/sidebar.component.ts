@@ -1,96 +1,116 @@
+import { NgFor } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+
+interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+}
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, NgFor, MatIconModule],
   template: `
     <aside class="sidebar">
       <div class="sidebar-header">
+        <mat-icon class="logo-icon">receipt_long</mat-icon>
         <h2>Facturation</h2>
       </div>
       <nav class="sidebar-nav">
-        <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">
-          <span class="nav-icon">📊</span> Dashboard
-        </a>
-        <a routerLink="/clients" routerLinkActive="active">
-          <span class="nav-icon">👥</span> Clients
-        </a>
-        <a routerLink="/fournisseurs" routerLinkActive="active">
-          <span class="nav-icon">🏭</span> Fournisseurs
-        </a>
-        <a routerLink="/devis" routerLinkActive="active">
-          <span class="nav-icon">📋</span> Devis
-        </a>
-        <a routerLink="/commandes" routerLinkActive="active">
-          <span class="nav-icon">📝</span> Commandes
-        </a>
-        <a routerLink="/bons-de-commande" routerLinkActive="active">
-          <span class="nav-icon">📑</span> Bons de Commande
-        </a>
-        <a routerLink="/factures" routerLinkActive="active">
-          <span class="nav-icon">💰</span> Factures
-        </a>
-        <a routerLink="/produits" routerLinkActive="active">
-          <span class="nav-icon">📦</span> Produits
-        </a>
-        <a routerLink="/paiements" routerLinkActive="active">
-          <span class="nav-icon">💳</span> Paiements
-        </a>
-        <a routerLink="/avoirs" routerLinkActive="active">
-          <span class="nav-icon">↩️</span> Avoirs
+        <a *ngFor="let item of navItems"
+           [routerLink]="item.path"
+           routerLinkActive="active"
+           [routerLinkActiveOptions]="{exact: item.exact ?? false}">
+          <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+          <span>{{ item.label }}</span>
         </a>
       </nav>
     </aside>
   `,
   styles: [`
     .sidebar {
-      width: 250px;
+      width: 260px;
       height: 100vh;
-      background: #1e293b;
-      color: #fff;
+      background: var(--color-sidebar);
+      color: var(--color-text-inverse);
       position: fixed;
       left: 0;
       top: 0;
       display: flex;
       flex-direction: column;
+      z-index: 100;
     }
     .sidebar-header {
-      padding: 20px;
-      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .sidebar-header h2 {
       margin: 0;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .logo-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: var(--color-primary-light);
     }
     .sidebar-nav {
       display: flex;
       flex-direction: column;
-      padding: 10px 0;
+      padding: 12px 0;
+      gap: 2px;
     }
     .sidebar-nav a {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px 20px;
-      color: #94a3b8;
+      gap: 12px;
+      padding: 10px 24px;
+      margin: 0 8px;
+      border-radius: var(--radius-md);
+      color: var(--color-text-muted);
       text-decoration: none;
-      transition: all 0.2s;
-      font-size: 0.9rem;
+      transition: all 0.15s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
     }
     .sidebar-nav a:hover {
-      background: #334155;
-      color: #fff;
+      background: var(--color-sidebar-hover);
+      color: var(--color-text-inverse);
     }
     .sidebar-nav a.active {
-      background: #3b82f6;
+      background: var(--color-sidebar-active);
       color: #fff;
     }
     .nav-icon {
-      font-size: 1.1rem;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
   `]
 })
-export class SidebarComponent {}
+export class SidebarComponent {
+  readonly navItems: NavItem[] = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', exact: true },
+    { path: '/clients', label: 'Clients', icon: 'group' },
+    { path: '/fournisseurs', label: 'Fournisseurs', icon: 'factory' },
+    { path: '/devis', label: 'Devis', icon: 'description' },
+    { path: '/commandes', label: 'Commandes', icon: 'shopping_cart' },
+    { path: '/bons-de-commande', label: 'Bons de commande', icon: 'assignment' },
+    { path: '/factures', label: 'Factures', icon: 'receipt' },
+    { path: '/produits', label: 'Produits', icon: 'inventory_2' },
+    { path: '/paiements', label: 'Paiements', icon: 'payments' },
+    { path: '/avoirs', label: 'Avoirs', icon: 'undo' },
+  ];
+}

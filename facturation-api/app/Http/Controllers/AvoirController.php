@@ -2,39 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreAvoirRequest;
+use App\Http\Requests\UpdateAvoirRequest;
 use App\Models\Avoir;
-use Illuminate\Http\Request;
+use App\Models\DocumentSequence;
 
 class AvoirController extends Controller
 {
     public function index()
     {
-        $avoirs = Avoir::with('client:id,nom')->get();
+        $avoirs = Avoir::with('client:id,nom')
+            ->when(request('search'), fn($q, $s) => $q->where('numero_avoir', 'like', "%{$s}%"))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
         return response()->json($avoirs);
     }
 
-    public function store(Request $request)
+    public function store(StoreAvoirRequest $request)
     {
-        $validated = $request->validate([
-            'facture_id' => 'nullable|exists:factures,id',
-            'client_id' => 'required|exists:clients,id',
-            'date_avoir' => 'required|date',
-            'motif' => 'nullable|string|max:500',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'statut' => 'nullable|string|max:50',
-            'notes' => 'nullable|string',
-            'lignes' => 'nullable|array',
-            'lignes.*.description' => 'required_with:lignes|string|max:500',
-            'lignes.*.quantite' => 'required_with:lignes|integer|min:1',
-            'lignes.*.prix_unitaire_ht' => 'required_with:lignes|numeric|min:0',
-            'lignes.*.montant_ht' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
-        $numeroAvoir = 'AVOIR-' . date('Y') . '-' . str_pad(Avoir::count() + 1, 4, '0', STR_PAD_LEFT);
-        $validated['numero_avoir'] = $numeroAvoir;
+        $validated['numero_avoir'] = $this->nextNumero('avoir', 'AVOIR-');
 
         $avoir = Avoir::create($validated);
 
@@ -56,21 +45,9 @@ class AvoirController extends Controller
         return response()->json($avoir);
     }
 
-    public function update(Request $request, Avoir $avoir)
+    public function update(UpdateAvoirRequest $request, Avoir $avoir)
     {
-        $validated = $request->validate([
-            'facture_id' => 'nullable|exists:factures,id',
-            'client_id' => 'sometimes|required|exists:clients,id',
-            'date_avoir' => 'sometimes|required|date',
-            'motif' => 'nullable|string|max:500',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'statut' => 'nullable|string|max:50',
-            'notes' => 'nullable|string',
-        ]);
-
-        $avoir->update($validated);
+        $avoir->update($request->validated());
 
         return response()->json($avoir);
     }
@@ -80,5 +57,22 @@ class AvoirController extends Controller
         $avoir->delete();
 
         return response()->json(null, 204);
+    }
+
+    private function nextNumero(string $type, string $prefix): string
+    {
+        $seq = DocumentSequence::firstOrCreate(
+            ['document_type' => $type],
+            ['prefixe' => $prefix, 'annee_courante' => date('Y'), 'prochain_numero' => 1]
+        );
+
+        if ($seq->annee_courante != date('Y')) {
+            $seq->update(['annee_courante' => date('Y'), 'prochain_numero' => 1]);
+        }
+
+        $numero = $prefix . date('Y') . '-' . str_pad($seq->prochain_numero, 4, '0', STR_PAD_LEFT);
+        $seq->increment('prochain_numero');
+
+        return $numero;
     }
 }

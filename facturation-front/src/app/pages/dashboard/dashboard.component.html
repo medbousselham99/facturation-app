@@ -1,0 +1,227 @@
+<div class="dashboard">
+  <div class="page-header">
+    <h1>Tableau de bord</h1>
+    <p class="page-subtitle">Aperçu de votre activité</p>
+  </div>
+
+  @if (loading) {
+    <div class="state-container">
+      <div class="spinner"></div>
+      <p>Chargement des données...</p>
+    </div>
+  } @else if (error) {
+    <div class="state-container error">
+      <span class="state-icon">!</span>
+      <p>{{ error }}</p>
+      <button class="btn btn-primary" (click)="ngOnInit()">Réessayer</button>
+    </div>
+  } @else if (data) {
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-left-color: var(--color-primary);">
+        <div class="kpi-header">
+          <span class="kpi-icon" style="background: var(--color-primary-bg); color: var(--color-primary);">CA</span>
+          <span class="kpi-label">Chiffre d'affaires</span>
+        </div>
+        <div class="kpi-value">{{ data.chiffre_affaires_mois | number:'1.2-2' }} <span class="kpi-currency">DH</span></div>
+        <div class="kpi-period">Ce mois-ci</div>
+      </div>
+      <div class="kpi-card" style="border-left-color: var(--color-success);">
+        <div class="kpi-header">
+          <span class="kpi-icon" style="background: var(--color-success-bg); color: var(--color-success);">
+            <mat-icon>check_circle</mat-icon>
+          </span>
+          <span class="kpi-label">Payées</span>
+        </div>
+        <div class="kpi-value">{{ data.factures_payees.nombre }}</div>
+        <div class="kpi-sub">{{ data.factures_payees.montant | number:'1.2-2' }} DH</div>
+      </div>
+      <div class="kpi-card" style="border-left-color: var(--color-warning);">
+        <div class="kpi-header">
+          <span class="kpi-icon" style="background: var(--color-warning-bg); color: var(--color-warning);">
+            <mat-icon>schedule</mat-icon>
+          </span>
+          <span class="kpi-label">En attente</span>
+        </div>
+        <div class="kpi-value">{{ data.factures_en_attente.nombre }}</div>
+        <div class="kpi-sub">{{ data.factures_en_attente.montant | number:'1.2-2' }} DH</div>
+      </div>
+      <div class="kpi-card" style="border-left-color: var(--color-danger);">
+        <div class="kpi-header">
+          <span class="kpi-icon" style="background: var(--color-danger-bg); color: var(--color-danger);">
+            <mat-icon>warning</mat-icon>
+          </span>
+          <span class="kpi-label">En retard</span>
+        </div>
+        <div class="kpi-value">{{ data.factures_en_retard.nombre }}</div>
+        <div class="kpi-sub">{{ data.factures_en_retard.montant | number:'1.2-2' }} DH</div>
+      </div>
+      <div class="kpi-card" style="border-left-color: #8b5cf6;">
+        <div class="kpi-header">
+          <span class="kpi-icon" style="background: #f5f3ff; color: #7c3aed;">
+            <mat-icon>description</mat-icon>
+          </span>
+          <span class="kpi-label">Devis en cours</span>
+        </div>
+        <div class="kpi-value">{{ data.devis_en_cours.nombre }}</div>
+        <div class="kpi-sub">Conversion: {{ data.devis_en_cours.taux_conversion }}</div>
+      </div>
+      <div class="kpi-card" style="border-left-color: #06b6d4;">
+        <div class="kpi-header">
+          <span class="kpi-icon" style="background: #ecfeff; color: #0891b2;">
+            <mat-icon>person_add</mat-icon>
+          </span>
+          <span class="kpi-label">Nouveaux clients</span>
+        </div>
+        <div class="kpi-value">{{ data.nouveaux_clients_mois }}</div>
+        <div class="kpi-sub">Ce mois-ci</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="card">
+        <div class="card-header">
+          <h3>CA mensuel (12 mois)</h3>
+        </div>
+        <div class="card-body">
+          <div class="bar-chart">
+            @for (m of data.ca_mensuel; track $index) {
+              <div class="bar-item">
+                <div class="bar-tooltip">{{ m.total | number:'1.0-0' }} DH</div>
+                <div class="bar" [style.height.%]="getBarHeight(m.total, data.ca_mensuel)"></div>
+                <div class="bar-label">{{ getMonthAbbr(m.mois) }} {{ m.annee.slice(2) }}</div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>Statuts des factures</h3>
+        </div>
+        <div class="card-body" style="text-align:center;">
+          <svg viewBox="0 0 100 100" class="donut-svg">
+            @for (seg of getDonutSegments(); track $index) {
+              <circle cx="50" cy="50" r="40" fill="none"
+                [attr.stroke]="seg.color"
+                [attr.stroke-width]="12"
+                [attr.stroke-dasharray]="seg.dasharray"
+                [attr.stroke-dashoffset]="seg.dashoffset"
+                transform="rotate(-90 50 50)"
+                style="transition: stroke-dasharray 0.5s ease;" />
+            }
+          </svg>
+          <div class="donut-legend">
+            @for (seg of statutsFacturesArray; track $index) {
+              <div class="legend-item">
+                <span class="legend-dot" [style.background]="donutColors[$index]"></span>
+                <span>{{ getStatutLabel(seg.statut) }}</span>
+                <span class="legend-count">({{ seg.count }})</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="card card-wide">
+        <div class="card-header">
+          <h3>Évolution devis vs factures</h3>
+        </div>
+        <div class="card-body">
+          <svg viewBox="0 0 300 150" class="line-chart-svg">
+            <polyline [attr.points]="getDevisLinePoints()" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round" />
+            <polyline [attr.points]="getFactureLinePoints()" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" />
+            @for (pt of data.evolution_devis_factures; track $index) {
+              <circle [attr.cx]="25 + $index * 50" [attr.cy]="getDevisPointY(pt.devis_count)" r="3" fill="#f59e0b" />
+              <circle [attr.cx]="25 + $index * 50" [attr.cy]="getFacturePointY(pt.facture_count)" r="3" fill="#3b82f6" />
+            }
+            @for (pt of data.evolution_devis_factures; track $index) {
+              <text [attr.x]="25 + $index * 50" y="140" font-size="8" text-anchor="middle" fill="var(--color-text-muted)">{{ pt.mois_annee.slice(0, 3) }}</text>
+            }
+          </svg>
+          <div class="line-legend">
+            <span class="legend-line"><span class="line-dot" style="background:#f59e0b;"></span> Devis</span>
+            <span class="legend-line"><span class="line-dot" style="background:#3b82f6;"></span> Factures</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h3>Activité récente</h3>
+        <span class="section-count">{{ data.activite_recente.length }} documents</span>
+      </div>
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Numéro</th>
+              <th>Client</th>
+              <th>Montant</th>
+              <th>Statut</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (act of data.activite_recente; track act.id) {
+              <tr>
+                <td><span class="type-badge type-{{ act.type }}">{{ act.type }}</span></td>
+                <td class="td-mono">{{ act.numero }}</td>
+                <td>{{ act.client || '—' }}</td>
+                <td class="td-mono">{{ act.montant | number:'1.2-2' }} DH</td>
+                <td><span class="badge badge-{{ act.statut }}">{{ getStatutLabel(act.statut) }}</span></td>
+                <td class="td-muted">{{ act.created_at | date:'dd/MM/yyyy' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="td-empty">Aucune activité récente</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h3>Alertes</h3>
+      </div>
+      <div class="alertes-grid">
+        @for (alert of data.alertes.factures_en_retard; track alert.id) {
+          <div class="alert-box alert-danger">
+            <mat-icon class="alert-icon">error</mat-icon>
+            <div class="alert-content">
+              <strong>Facture en retard</strong>
+              <span>{{ alert.numero_facture }} — {{ alert.client?.nom || '—' }} — {{ alert.montant_ttc | number:'1.2-2' }} DH</span>
+            </div>
+          </div>
+        }
+        @for (alert of data.alertes.devis_expires; track alert.id) {
+          <div class="alert-box alert-warning">
+            <mat-icon class="alert-icon">schedule</mat-icon>
+            <div class="alert-content">
+              <strong>Devis expiré</strong>
+              <span>{{ alert.numero_devis }} — {{ alert.client?.nom || '—' }} — {{ alert.montant_ttc | number:'1.2-2' }} DH</span>
+            </div>
+          </div>
+        }
+        @for (alert of data.alertes.bons_commande_non_traites; track alert.id) {
+          <div class="alert-box alert-info">
+            <mat-icon class="alert-icon">info</mat-icon>
+            <div class="alert-content">
+              <strong>Bon de commande non traité</strong>
+              <span>{{ alert.numero_bc }} — {{ alert.fournisseur?.nom || '—' }} — {{ alert.montant_ttc | number:'1.2-2' }} DH</span>
+            </div>
+          </div>
+        }
+        @if (!data.alertes.factures_en_retard.length && !data.alertes.devis_expires.length && !data.alertes.bons_commande_non_traites.length) {
+          <div class="alert-box alert-success">
+            <mat-icon class="alert-icon">check_circle</mat-icon>
+            <div class="alert-content">
+              <strong>Tout est en ordre</strong>
+              <span>Aucune alerte à signaler</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

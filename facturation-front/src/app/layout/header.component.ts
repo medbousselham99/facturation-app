@@ -1,18 +1,27 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
+  imports: [MatIconModule],
   template: `
     <header class="header">
-      <div class="header-title">
-        <h2>{{ user?.role === 'admin' ? 'Administrateur' : 'Backoffice' }}</h2>
+      <div class="header-breadcrumb">
+        <mat-icon class="breadcrumb-icon">chevron_right</mat-icon>
+        <span class="breadcrumb-label">{{ user?.role === 'admin' ? 'Administrateur' : 'Opérateur' }}</span>
       </div>
       <div class="header-user">
-        <span class="user-name">{{ user?.name }}</span>
-        <button class="btn-logout" (click)="logout()">Déconnexion</button>
+        <div class="user-avatar">{{ user?.name?.charAt(0)?.toUpperCase() }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ user?.name }}</span>
+          <span class="user-role">{{ user?.role === 'admin' ? 'Administrateur' : 'Backoffice' }}</span>
+        </div>
+        <button class="btn-logout" (click)="logout()" title="Déconnexion">
+          <mat-icon>logout</mat-icon>
+        </button>
       </div>
     </header>
   `,
@@ -21,39 +30,76 @@ import { AuthService } from '../services/auth.service';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 15px 30px;
-      background: #fff;
-      border-bottom: 1px solid #e2e8f0;
+      padding: 0 32px;
+      height: 64px;
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
     }
-    .header-title h2 {
-      margin: 0;
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: #1e3a5f;
+    .header-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--color-text-secondary);
+      font-size: 0.875rem;
+    }
+    .breadcrumb-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
     .header-user {
       display: flex;
       align-items: center;
       gap: 12px;
     }
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.3;
+    }
     .user-name {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #0f172a;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+    .user-role {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
     }
     .btn-logout {
-      padding: 6px 14px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      background: #fff;
-      color: #ef4444;
-      cursor: pointer;
-      font-size: 0.8rem;
-      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+      color: var(--color-text-secondary);
+      transition: all 0.15s ease;
+      margin-left: 8px;
     }
     .btn-logout:hover {
-      background: #fef2f2;
-      border-color: #fecaca;
+      background: var(--color-danger-bg);
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+    }
+    .btn-logout mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
   `]
 })

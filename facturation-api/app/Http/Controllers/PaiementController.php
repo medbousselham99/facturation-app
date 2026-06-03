@@ -2,37 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Paiement;
+use App\Http\Requests\StorePaiementRequest;
+use App\Http\Requests\UpdatePaiementRequest;
 use App\Models\Facture;
-use Illuminate\Http\Request;
+use App\Models\Paiement;
 
 class PaiementController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Paiement::with('facture:id,numero_facture');
+        $paiements = Paiement::with('facture:id,numero_facture')
+            ->when(request('facture_id'), fn($q, $id) => $q->where('facture_id', $id))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
-        if ($factureId = $request->get('facture_id')) {
-            $query->where('facture_id', $factureId);
-        }
-
-        return response()->json($query->get());
+        return response()->json($paiements);
     }
 
-    public function store(Request $request)
+    public function store(StorePaiementRequest $request)
     {
-        $validated = $request->validate([
-            'facture_id' => 'required|exists:factures,id',
-            'montant' => 'required|numeric|min:0.01',
-            'date_paiement' => 'required|date',
-            'mode_paiement' => 'nullable|string|max:50',
-            'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $facture = Facture::findOrFail($validated['facture_id']);
-        $totalPaye = Paiement::where('facture_id', $facture->id)->sum('montant');
-        $restant = $facture->montant_ttc - $totalPaye;
+        $restant = $facture->montant_restant;
 
         if ($validated['montant'] > $restant) {
             return response()->json([
@@ -56,16 +48,9 @@ class PaiementController extends Controller
         return response()->json($paiement);
     }
 
-    public function update(Request $request, Paiement $paiement)
+    public function update(UpdatePaiementRequest $request, Paiement $paiement)
     {
-        $validated = $request->validate([
-            'facture_id' => 'sometimes|required|exists:factures,id',
-            'montant' => 'sometimes|required|numeric|min:0.01',
-            'date_paiement' => 'sometimes|required|date',
-            'mode_paiement' => 'nullable|string|max:50',
-            'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $factureId = $validated['facture_id'] ?? $paiement->facture_id;
         $facture = Facture::findOrFail($factureId);
@@ -83,7 +68,7 @@ class PaiementController extends Controller
 
         $paiement->update($validated);
 
-        if ($request->has('facture_id') || $request->has('montant')) {
+        if (isset($validated['facture_id']) || isset($validated['montant'])) {
             $this->mettreAJourStatutFacture($paiement->facture_id);
         }
 
@@ -104,17 +89,18 @@ class PaiementController extends Controller
     private function mettreAJourStatutFacture(int $factureId): void
     {
         $facture = Facture::find($factureId);
+
         if (!$facture) {
             return;
         }
 
         $totalPaye = Paiement::where('facture_id', $factureId)->sum('montant');
 
-        if ($totalPaye >= $facture->montant_ttc) {
-            $facture->statut = 'payee';
-        } elseif ($totalPaye > 0) {
-            $facture->statut = 'partiellement_payee';
-        }
+        match (true) {
+            $totalPaye >= $facture->montant_ttc => $facture->statut = 'payee',
+            $totalPaye > 0 => $facture->statut = 'partiellement_payee',
+            default => null,
+        };
 
         $facture->save();
     }

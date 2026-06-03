@@ -2,38 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreFournisseurRequest;
+use App\Http\Requests\UpdateFournisseurRequest;
 use App\Models\Fournisseur;
-use Illuminate\Http\Request;
 
 class FournisseurController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Fournisseur::query();
+        $fournisseurs = Fournisseur::query()
+            ->when(request('search'), fn($q, $s) => $q->where('nom', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
-        if ($search = $request->get('search')) {
-            $query->where('nom', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-        }
-
-        return response()->json($query->get());
+        return response()->json($fournisseurs);
     }
 
-    public function store(Request $request)
+    public function store(StoreFournisseurRequest $request)
     {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'telephone' => 'nullable|string|max:50',
-            'adresse' => 'nullable|string|max:500',
-            'ville' => 'nullable|string|max:255',
-            'code_postal' => 'nullable|string|max:20',
-            'pays' => 'nullable|string|max:255',
-            'siret' => 'nullable|string|max:14',
-            'notes' => 'nullable|string',
-        ]);
-
-        $fournisseur = Fournisseur::create($validated);
+        $fournisseur = Fournisseur::create($request->validated());
 
         return response()->json($fournisseur, 201);
     }
@@ -45,21 +32,9 @@ class FournisseurController extends Controller
         return response()->json($fournisseur);
     }
 
-    public function update(Request $request, Fournisseur $fournisseur)
+    public function update(UpdateFournisseurRequest $request, Fournisseur $fournisseur)
     {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'telephone' => 'nullable|string|max:50',
-            'adresse' => 'nullable|string|max:500',
-            'ville' => 'nullable|string|max:255',
-            'code_postal' => 'nullable|string|max:20',
-            'pays' => 'nullable|string|max:255',
-            'siret' => 'nullable|string|max:14',
-            'notes' => 'nullable|string',
-        ]);
-
-        $fournisseur->update($validated);
+        $fournisseur->update($request->validated());
 
         return response()->json($fournisseur);
     }

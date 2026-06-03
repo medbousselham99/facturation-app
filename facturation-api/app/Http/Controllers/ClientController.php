@@ -2,38 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreClientRequest;
+use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
-use Illuminate\Http\Request;
 
 class ClientController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Client::query();
+        $clients = Client::query()
+            ->when(request('search'), fn($q, $s) => $q->where('nom', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
-        if ($search = $request->get('search')) {
-            $query->where('nom', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-        }
-
-        return response()->json($query->get());
+        return response()->json($clients);
     }
 
-    public function store(Request $request)
+    public function store(StoreClientRequest $request)
     {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'telephone' => 'nullable|string|max:50',
-            'adresse' => 'nullable|string|max:500',
-            'ville' => 'nullable|string|max:255',
-            'code_postal' => 'nullable|string|max:20',
-            'pays' => 'nullable|string|max:255',
-            'siret' => 'nullable|string|max:14',
-            'notes' => 'nullable|string',
-        ]);
-
-        $client = Client::create($validated);
+        $client = Client::create($request->validated());
 
         return response()->json($client, 201);
     }
@@ -45,21 +32,9 @@ class ClientController extends Controller
         return response()->json($client);
     }
 
-    public function update(Request $request, Client $client)
+    public function update(UpdateClientRequest $request, Client $client)
     {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'telephone' => 'nullable|string|max:50',
-            'adresse' => 'nullable|string|max:500',
-            'ville' => 'nullable|string|max:255',
-            'code_postal' => 'nullable|string|max:20',
-            'pays' => 'nullable|string|max:255',
-            'siret' => 'nullable|string|max:14',
-            'notes' => 'nullable|string',
-        ]);
-
-        $client->update($validated);
+        $client->update($request->validated());
 
         return response()->json($client);
     }

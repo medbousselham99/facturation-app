@@ -2,38 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreDevisRequest;
+use App\Http\Requests\UpdateDevisRequest;
 use App\Models\Devis;
-use Illuminate\Http\Request;
+use App\Models\DocumentSequence;
+use App\Models\Historique;
 
 class DevisController extends Controller
 {
     public function index()
     {
-        $devis = Devis::with('client:id,nom')->get();
+        $devis = Devis::with('client:id,nom')
+            ->when(request('search'), fn($q, $s) => $q->where('numero_devis', 'like', "%{$s}%"))
+            ->when(request('statut'), fn($q, $s) => $q->where('statut', $s))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
         return response()->json($devis);
     }
 
-    public function store(Request $request)
+    public function store(StoreDevisRequest $request)
     {
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'date_devis' => 'required|date',
-            'date_validite' => 'required|date|after_or_equal:date_devis',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-            'lignes' => 'nullable|array',
-            'lignes.*.description' => 'required_with:lignes|string|max:500',
-            'lignes.*.quantite' => 'required_with:lignes|integer|min:1',
-            'lignes.*.prix_unitaire_ht' => 'required_with:lignes|numeric|min:0',
-            'lignes.*.montant_ht' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
-        $numeroDevis = 'DEV-' . date('Y') . '-' . str_pad(Devis::count() + 1, 4, '0', STR_PAD_LEFT);
-        $validated['numero_devis'] = $numeroDevis;
+        $validated['numero_devis'] = $this->nextNumero('devis', 'DEV-');
 
         if ($request->has('lignes')) {
             $montantHt = collect($request->lignes)->sum('montant_ht');
@@ -62,20 +54,9 @@ class DevisController extends Controller
         return response()->json($devis);
     }
 
-    public function update(Request $request, Devis $devis)
+    public function update(UpdateDevisRequest $request, Devis $devis)
     {
-        $validated = $request->validate([
-            'client_id' => 'sometimes|required|exists:clients,id',
-            'date_devis' => 'sometimes|required|date',
-            'date_validite' => 'sometimes|required|date|after_or_equal:date_devis',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
-
-        $devis->update($validated);
+        $devis->update($request->validated());
 
         return response()->json($devis);
     }
@@ -92,25 +73,39 @@ class DevisController extends Controller
         $devis->load(['client', 'lignes']);
         $params = \App\Models\ParametreEntreprise::first();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.devis', [
-            'devis' => $devis,
-            'params' => $params,
-        ]);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.devis', compact('devis', 'params'));
 
         return $pdf->download("devis_{$devis->numero_devis}.pdf");
     }
 
     public function envoyer(Devis $devis)
     {
-        $devis->update(['statut' => 'en_attente']);
+        $devis->update(['statut' => 'envoye']);
 
-        \App\Models\Historique::create([
+        Historique::create([
             'document_type' => 'devis',
             'document_id' => $devis->id,
             'action' => 'envoye',
             'description' => 'Devis marqué comme envoyé',
         ]);
 
-        return response()->json($devis);
+        return response()->json($devis->fresh());
+    }
+
+    private function nextNumero(string $type, string $prefix): string
+    {
+        $seq = DocumentSequence::firstOrCreate(
+            ['document_type' => $type],
+            ['prefixe' => $prefix, 'annee_courante' => date('Y'), 'prochain_numero' => 1]
+        );
+
+        if ($seq->annee_courante != date('Y')) {
+            $seq->update(['annee_courante' => date('Y'), 'prochain_numero' => 1]);
+        }
+
+        $numero = $prefix . date('Y') . '-' . str_pad($seq->prochain_numero, 4, '0', STR_PAD_LEFT);
+        $seq->increment('prochain_numero');
+
+        return $numero;
     }
 }

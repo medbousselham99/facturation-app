@@ -2,38 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBonDeCommandeRequest;
+use App\Http\Requests\UpdateBonDeCommandeRequest;
 use App\Models\BonDeCommande;
-use Illuminate\Http\Request;
+use App\Models\DocumentSequence;
 
 class BonDeCommandeController extends Controller
 {
     public function index()
     {
-        $bons = BonDeCommande::with('fournisseur:id,nom')->get();
+        $bons = BonDeCommande::with('fournisseur:id,nom')
+            ->when(request('search'), fn($q, $s) => $q->where('numero_bc', 'like', "%{$s}%"))
+            ->when(request('statut'), fn($q, $s) => $q->where('statut', $s))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
         return response()->json($bons);
     }
 
-    public function store(Request $request)
+    public function store(StoreBonDeCommandeRequest $request)
     {
-        $validated = $request->validate([
-            'fournisseur_id' => 'required|exists:fournisseurs,id',
-            'date_bc' => 'required|date',
-            'date_livraison_prevue' => 'nullable|date|after_or_equal:date_bc',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-            'lignes' => 'nullable|array',
-            'lignes.*.description' => 'required_with:lignes|string|max:500',
-            'lignes.*.quantite' => 'required_with:lignes|integer|min:1',
-            'lignes.*.prix_unitaire_ht' => 'required_with:lignes|numeric|min:0',
-            'lignes.*.montant_ht' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
-        $numeroBc = 'BC-' . date('Y') . '-' . str_pad(BonDeCommande::count() + 1, 4, '0', STR_PAD_LEFT);
-        $validated['numero_bc'] = $numeroBc;
+        $validated['numero_bc'] = $this->nextNumero('bon_commande', 'BC-');
 
         $bon = BonDeCommande::create($validated);
 
@@ -48,46 +39,48 @@ class BonDeCommandeController extends Controller
         return response()->json($bon, 201);
     }
 
-    public function show($id)
+    public function show(BonDeCommande $bonDeCommande)
     {
-        $bonDeCommande = BonDeCommande::with(['fournisseur', 'commande', 'lignes'])->findOrFail($id);
+        $bonDeCommande->load(['fournisseur', 'commande', 'lignes']);
 
         return response()->json($bonDeCommande);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateBonDeCommandeRequest $request, BonDeCommande $bonDeCommande)
     {
-        $bonDeCommande = BonDeCommande::findOrFail($id);
-
-        $validated = $request->validate([
-            'fournisseur_id' => 'sometimes|required|exists:fournisseurs,id',
-            'date_bc' => 'sometimes|required|date',
-            'date_livraison_prevue' => 'nullable|date|after_or_equal:date_bc',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
-
-        $bonDeCommande->update($validated);
+        $bonDeCommande->update($request->validated());
 
         return response()->json($bonDeCommande);
     }
 
-    public function destroy($id)
+    public function destroy(BonDeCommande $bonDeCommande)
     {
-        $bonDeCommande = BonDeCommande::findOrFail($id);
         $bonDeCommande->delete();
 
         return response()->json(null, 204);
     }
 
-    public function livrer($id)
+    public function livrer(BonDeCommande $bonDeCommande)
     {
-        $bonDeCommande = BonDeCommande::findOrFail($id);
         $bonDeCommande->update(['statut' => 'livre']);
 
         return response()->json($bonDeCommande->fresh()->load('fournisseur', 'commande', 'lignes'));
+    }
+
+    private function nextNumero(string $type, string $prefix): string
+    {
+        $seq = DocumentSequence::firstOrCreate(
+            ['document_type' => $type],
+            ['prefixe' => $prefix, 'annee_courante' => date('Y'), 'prochain_numero' => 1]
+        );
+
+        if ($seq->annee_courante != date('Y')) {
+            $seq->update(['annee_courante' => date('Y'), 'prochain_numero' => 1]);
+        }
+
+        $numero = $prefix . date('Y') . '-' . str_pad($seq->prochain_numero, 4, '0', STR_PAD_LEFT);
+        $seq->increment('prochain_numero');
+
+        return $numero;
     }
 }

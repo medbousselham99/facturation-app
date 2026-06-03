@@ -2,38 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCommandeRequest;
+use App\Http\Requests\UpdateCommandeRequest;
 use App\Models\Commande;
 use App\Models\Devis;
-use Illuminate\Http\Request;
+use App\Models\DocumentSequence;
 
 class CommandeController extends Controller
 {
     public function index()
     {
-        $commandes = Commande::with('client:id,nom')->get();
+        $commandes = Commande::with('client:id,nom')
+            ->when(request('search'), fn($q, $s) => $q->where('numero_commande', 'like', "%{$s}%"))
+            ->when(request('statut'), fn($q, $s) => $q->where('statut', $s))
+            ->when(request('sort'), fn($q, $s) => $q->orderBy(ltrim($s, '-'), str_starts_with($s, '-') ? 'desc' : 'asc'), fn($q) => $q->latest())
+            ->paginate(request('per_page', 10));
 
         return response()->json($commandes);
     }
 
-    public function store(Request $request)
+    public function store(StoreCommandeRequest $request)
     {
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'date_commande' => 'required|date',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-            'lignes' => 'nullable|array',
-            'lignes.*.description' => 'required_with:lignes|string|max:500',
-            'lignes.*.quantite' => 'required_with:lignes|integer|min:1',
-            'lignes.*.prix_unitaire_ht' => 'required_with:lignes|numeric|min:0',
-            'lignes.*.montant_ht' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
-        $numeroCommande = 'CMD-' . date('Y') . '-' . str_pad(Commande::withTrashed()->count() + 1, 4, '0', STR_PAD_LEFT);
-        $validated['numero_commande'] = $numeroCommande;
+        $validated['numero_commande'] = $this->nextNumero('commande', 'CMD-');
 
         if ($request->has('lignes')) {
             $montantHt = collect($request->lignes)->sum('montant_ht');
@@ -62,19 +54,9 @@ class CommandeController extends Controller
         return response()->json($commande);
     }
 
-    public function update(Request $request, Commande $commande)
+    public function update(UpdateCommandeRequest $request, Commande $commande)
     {
-        $validated = $request->validate([
-            'client_id' => 'sometimes|required|exists:clients,id',
-            'date_commande' => 'sometimes|required|date',
-            'statut' => 'nullable|string|max:50',
-            'montant_ht' => 'nullable|numeric|min:0',
-            'montant_tva' => 'nullable|numeric|min:0',
-            'montant_ttc' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
-
-        $commande->update($validated);
+        $commande->update($request->validated());
 
         return response()->json($commande);
     }
@@ -95,5 +77,22 @@ class CommandeController extends Controller
         $commande->update(['statut' => 'livree']);
 
         return response()->json($commande->fresh()->load('client', 'lignes'));
+    }
+
+    private function nextNumero(string $type, string $prefix): string
+    {
+        $seq = DocumentSequence::firstOrCreate(
+            ['document_type' => $type],
+            ['prefixe' => $prefix, 'annee_courante' => date('Y'), 'prochain_numero' => 1]
+        );
+
+        if ($seq->annee_courante != date('Y')) {
+            $seq->update(['annee_courante' => date('Y'), 'prochain_numero' => 1]);
+        }
+
+        $numero = $prefix . date('Y') . '-' . str_pad($seq->prochain_numero, 4, '0', STR_PAD_LEFT);
+        $seq->increment('prochain_numero');
+
+        return $numero;
     }
 }

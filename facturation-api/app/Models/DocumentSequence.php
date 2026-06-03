@@ -7,18 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class DocumentSequence extends Model
 {
     protected $fillable = [
-        'type_document',
+        'document_type',
         'prefixe',
         'suffixe',
-        'annee',
-        'dernier_numero',
+        'prochain_numero',
+        'format_longueur',
+        'annee_courante',
     ];
 
     protected function casts(): array
     {
         return [
-            'annee' => 'integer',
-            'dernier_numero' => 'integer',
+            'prochain_numero' => 'integer',
+            'format_longueur' => 'integer',
+            'annee_courante' => 'string',
         ];
     }
 }
