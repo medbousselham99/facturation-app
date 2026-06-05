@@ -1,90 +1,141 @@
 <div class="register-page">
-  <div class="register-card">
-    <div class="register-header">
-      <h1>Facturation</h1>
-      <p>Créez votre compte</p>
+  <div class="register-container">
+    <div class="register-brand">
+      <div class="brand-content">
+        <div class="brand-icon">
+          <mat-icon>receipt_long</mat-icon>
+        </div>
+        <h1 class="brand-title">Facturation</h1>
+        <p class="brand-subtitle">Solution de gestion professionnelle</p>
+        <div class="brand-features">
+          <div class="brand-feature">
+            <mat-icon>check_circle</mat-icon>
+            <span>Gestion clients &amp; fournisseurs</span>
+          </div>
+          <div class="brand-feature">
+            <mat-icon>check_circle</mat-icon>
+            <span>Devis, commandes &amp; factures</span>
+          </div>
+          <div class="brand-feature">
+            <mat-icon>check_circle</mat-icon>
+            <span>Paiements &amp; avoirs</span>
+          </div>
+        </div>
+      </div>
     </div>
+    <div class="register-form-section">
+      <div class="form-wrapper">
+        <div class="form-header">
+          <h2>Créer un compte</h2>
+          <p>Rejoignez notre plateforme de gestion</p>
+        </div>
 
-    @if (error) {
-      <div class="alert alert-error">{{ error }}</div>
-    }
+        @if (error) {
+          <div class="alert alert-error">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ error }}</span>
+          </div>
+        }
 
-    <form (ngSubmit)="onSubmit()" class="register-form">
-      <div class="form-group">
-        <label for="name">Nom</label>
-        <input
-          id="name"
-          type="text"
-          [(ngModel)]="name"
-          name="name"
-          class="form-control"
-          placeholder="Votre nom"
-          required
-        />
+        <form (ngSubmit)="onSubmit()" class="register-form" autocomplete="off">
+          <div class="form-group">
+            <label for="name">Nom complet</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">person</mat-icon>
+              <input
+                id="name"
+                type="text"
+                [(ngModel)]="name"
+                name="name"
+                class="form-control"
+                placeholder="Votre nom"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="email">Adresse email</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">mail</mat-icon>
+              <input
+                id="email"
+                type="email"
+                [(ngModel)]="email"
+                name="email"
+                class="form-control"
+                placeholder="exemple@email.fr"
+                required
+                autocomplete="email"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="password">Mot de passe</label>
+              <div class="input-wrapper">
+                <mat-icon class="input-icon">lock</mat-icon>
+                <input
+                  id="password"
+                  type="password"
+                  [(ngModel)]="password"
+                  name="password"
+                  class="form-control"
+                  placeholder="Minimum 6 car."
+                  required
+                  autocomplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="password_confirmation">Confirmation</label>
+              <div class="input-wrapper">
+                <mat-icon class="input-icon">lock</mat-icon>
+                <input
+                  id="password_confirmation"
+                  type="password"
+                  [(ngModel)]="password_confirmation"
+                  name="password_confirmation"
+                  class="form-control"
+                  placeholder="Répétez"
+                  required
+                  autocomplete="new-password"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="role">Rôle</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">badge</mat-icon>
+              <select
+                id="role"
+                [(ngModel)]="role"
+                name="role"
+                class="form-control form-select"
+              >
+                <option value="backoffice">Backoffice</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" [disabled]="loading">
+            @if (loading) {
+              <span class="spinner"></span>
+            }
+            {{ loading ? 'Inscription en cours...' : "S'inscrire" }}
+          </button>
+        </form>
+
+        <p class="form-footer">
+          Déjà un compte ?
+          <a routerLink="/login">Connectez-vous</a>
+        </p>
       </div>
-
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          [(ngModel)]="email"
-          name="email"
-          class="form-control"
-          placeholder="email@exemple.fr"
-          required
-          autocomplete="email"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="password">Mot de passe</label>
-        <input
-          id="password"
-          type="password"
-          [(ngModel)]="password"
-          name="password"
-          class="form-control"
-          placeholder="Minimum 6 caractères"
-          required
-          autocomplete="new-password"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="password_confirmation">Confirmer le mot de passe</label>
-        <input
-          id="password_confirmation"
-          type="password"
-          [(ngModel)]="password_confirmation"
-          name="password_confirmation"
-          class="form-control"
-          placeholder="Répétez le mot de passe"
-          required
-          autocomplete="new-password"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="role">Rôle</label>
-        <select
-          id="role"
-          [(ngModel)]="role"
-          name="role"
-          class="form-control"
-        >
-          <option value="backoffice">Backoffice</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>
-
-      <button type="submit" class="btn btn-primary btn-block" [disabled]="loading">
-        {{ loading ? 'Inscription...' : "S'inscrire" }}
-      </button>
-    </form>
-
-    <p class="register-footer">
-      Déjà un compte ? <a routerLink="/login">Connectez-vous</a>
-    </p>
+    </div>
   </div>
 </div>
