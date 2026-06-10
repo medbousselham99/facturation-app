@@ -53,3 +53,16 @@ Le frontend tourne sur `http://localhost:4200`
 - **Email** : `test@example.com`
 - **Mot de passe** : `password`
 
+## Captures d'écran
+
+| | |
+|---|---|
+| **Page de connexion** | **Page d'inscription** |
+| ![Connexion](screenshots/facturation1.png) | ![Inscription](screenshots/facturation2.png) |
+| **Tableau de bord** | **Page de devis** |
+| ![Dashboard](screenshots/facturation3.png) | ![Devis](screenshots/facturation4.png) |
+| **Page de commandes** | **Bons de commande** |
+| ![Commandes](screenshots/facturation5.png) | ![Bons de commande](screenshots/facturation6.png) |
+| **Détail facture** |
+| ![Détail facture](screenshots/facturation7.png) | |
+
